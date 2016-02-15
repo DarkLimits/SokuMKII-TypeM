@@ -39,7 +39,7 @@ var io = require('socket.io')(http);
 
                     var key = keys[i];
                     var slave = Slaves[key];
-                    var msg = _util.format('SOKU_SLAVE %s %d', slave.Address, slave.Port);
+                    var msg = _util.format('SOKU_SLAVE %s %d\n', slave.Address, slave.Port);
                     socket.send(msg, 0, msg.length, rinfo.port, rinfo.address);
 
                 }

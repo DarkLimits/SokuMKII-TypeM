@@ -5,6 +5,16 @@ var _util = require('util');
 var _dgram = require('dgram');
 var _repl = require('repl');
 
+var log4js = require('log4js');
+log4js.configure({
+    appenders: [
+        { type: 'console' },
+        { type: 'file', filename: 'logs/udp.log', category: 'udp' },
+        { type: 'file', filename: 'logs/http.log', category: 'http' },
+        { type: 'file', filename: 'logs/io.log', category: 'io' }
+    ]
+});
+
 var express = require('express');
 
 var Config = require('./config').Master;
@@ -23,7 +33,7 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
 // UDP.
-(function(socket) {
+(function(socket, logger) {
 
     socket.on('message', function(msg, rinfo) {
 
@@ -44,16 +54,28 @@ var io = require('socket.io')(http);
 
                 }
 
+                logger.info('%s:%d: Request.', rinfo.address, rinfo.port);
+
             }
+            else {
+
+                logger.warn('%s:%d: Unknown command.', rinfo.address, rinfo.port);
+
+            }
+
+        }
+        else {
+
+            logger.warn('%s:%d: Invalid data.', rinfo.address, rinfo.port);
 
         }
 
     });
 
-})(socket);
+})(socket, log4js.getLogger('udp'));
 
 // Express.
-(function(app) {
+(function(app, logger) {
 
     app.set('view engine', 'ejs');
     //app.use(express.static('public'));
@@ -66,10 +88,10 @@ var io = require('socket.io')(http);
 
     });
 
-})(app);
+})(app, log4js.getLogger('http'));
 
 // Socket.IO.
-(function(io) {
+(function(io, logger) {
 
     io.on('connection', function(socket) {
 
@@ -77,7 +99,7 @@ var io = require('socket.io')(http);
             address: socket.request.connection.remoteAddress,
             port: socket.request.connection.remotePort,
         };
-        console.log('Unknown %s:%d connected.', remote.address, remote.port);
+        logger.info('Unknown %s:%d connected.', remote.address, remote.port);
 
         socket.on('disconnect', function() {
 
@@ -85,13 +107,13 @@ var io = require('socket.io')(http);
 
             if(!slave) {
 
-                console.log('Unknown %s:%d disconnected.', remote.address, remote.port);
+                logger.info('Unknown %s:%d disconnected.', remote.address, remote.port);
                 return;
 
             }
 
             delete Slaves[socket.id];
-            console.log('Slave %s %s:%d disconnected.', slave.Name, slave.Address, slave.Port);
+            logger.info('Slave %s %s:%d disconnected.', slave.Name, slave.Address, slave.Port);
 
         });
 
@@ -101,13 +123,13 @@ var io = require('socket.io')(http);
             if(!data.port) return;
 
             var slave = Slaves[socket.id] = new Slave(data.name, remote.address, data.port);
-            console.log('Slave %s %s:%d registered.', slave.Name, slave.Address, slave.Port);
+            logger.info('Slave %s %s:%d registered.', slave.Name, slave.Address, slave.Port);
 
         });
 
     });
 
-})(io);
+})(io, log4js.getLogger('io'));
 
 Util.Flow(function*(cb): any {
 

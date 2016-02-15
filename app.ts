@@ -22,10 +22,12 @@ var Config = require('./config').Master;
 import Util = require('./util');
 
 import Slave = require('./lib/slave');
+import Hosting = require('./lib/hosting');
 
 const BUFFER_SOKU = new Buffer('SOKU');
 
-var Slaves = {};
+var Slaves: { [id: string]: Slave } = {};
+var Hostings: { [id: string]: Hosting } = {};
 
 var socket = _dgram.createSocket('udp4');
 var app = express();
@@ -125,6 +127,40 @@ var io = require('socket.io')(http);
             var slave = Slaves[socket.id] = new Slave(data.name, remote.address, data.port);
             logger.info('Slave %s %s:%d registered.', slave.Name, slave.Address, slave.Port);
 
+            socket.emit('register', {
+                name: slave.Name,
+                address: slave.Address,
+                port: slave.Port,
+            });
+
+        });
+
+        socket.on('host', function(data) {
+
+            var slave = Slaves[socket.id];
+
+            if(data.relayAddress != slave.Address) {
+
+                logger.warn('Slave %s:%d: data.relayAddress != slave.Address.');
+
+            }
+
+            var hosting = new Hosting(socket.id, data.clientAddress, data.clientPort, data.relayAddress, data.relayPort);
+            Hostings[hosting.Hash] = hosting;
+            logger.info('Slave %s:%d: Client %s:%d hosted.', hosting.RelayAddress, hosting.RelayPort, hosting.ClientAddress, hosting.ClientPort);
+
+        });
+
+        socket.on('release', function(data) {
+
+            var hash = Hosting.GetHash(data.clientAddress, data.clientPort, data.relayAddress, data.relayPort);
+            var hosting = Hostings[hash];
+            logger.info('Slave %s:%d: Client %s:%d released.', hosting.RelayAddress, hosting.RelayPort, hosting.ClientAddress, hosting.ClientPort);
+
+            hosting = null;
+            Hostings[hash] = null;
+            delete Hostings[hash];
+
         });
 
     });
@@ -148,5 +184,6 @@ Util.Flow(function*(cb): any {
     });
 
     repl.context.Slaves = Slaves;
+    repl.context.Hostings = Hostings;
 
 });

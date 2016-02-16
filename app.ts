@@ -22,9 +22,14 @@ var Config = require('./config').Master;
 import Util = require('./util');
 
 import Slave = require('./lib/slave');
-import Hosting = require('./lib/hosting');
 
-const BUFFER_SOKU = new Buffer('SOKU');
+interface Hosting {
+    rinfo: string,
+    clientAddress: string,
+    clientPort: number,
+    relayAddress: string,
+    relayPort: number,
+}
 
 var Slaves: { [id: string]: Slave } = {};
 var Hostings: { [id: string]: Hosting } = {};
@@ -34,16 +39,38 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
+function IsCommand(msg: Buffer): boolean {
+
+    if(msg.indexOf('SOKU') == 0) return true;
+    else return false;
+
+}
+
+function ParseCommand(msg: Buffer): string[] {
+
+    return msg.toString('ascii').split('\n')[0].split(' ');
+
+}
+
+function SendCommand(socket: any, address: string, port: number, ...params) {
+
+    var msg = new Buffer(params.join(' ') + '\n');
+
+    socket.send(msg, 0, msg.length, port, address);
+
+}
+
 // UDP.
 (function(socket, logger) {
 
     socket.on('message', function(msg, rinfo) {
 
-        if(msg.slice(0, 4).compare(BUFFER_SOKU) == 0) {
+        if(IsCommand(msg)) {
 
-            var message = msg.toString('ascii');
+            var params = ParseCommand(msg);
 
-            if(message.indexOf('SOKU_REQUEST') == 0) {
+            switch(params[0]) {
+            case 'SOKU_REQUEST':
 
                 var keys = Object.keys(Slaves);
 
@@ -51,18 +78,16 @@ var io = require('socket.io')(http);
 
                     var key = keys[i];
                     var slave = Slaves[key];
-                    var msg = _util.format('SOKU_SLAVE %s %d\n', slave.Address, slave.Port);
-                    socket.send(msg, 0, msg.length, rinfo.port, rinfo.address);
+                    SendCommand(socket, rinfo.address, rinfo.port, 'SOKU_SLAVE', slave.Address, slave.Port);
 
                 }
 
                 logger.info('%s:%d: Request.', rinfo.address, rinfo.port);
 
-            }
-            else {
-
+                break;
+            default:
                 logger.warn('%s:%d: Unknown command.', rinfo.address, rinfo.port);
-
+                break;
             }
 
         }
@@ -145,21 +170,25 @@ var io = require('socket.io')(http);
 
             }
 
-            var hosting = new Hosting(socket.id, data.clientAddress, data.clientPort, data.relayAddress, data.relayPort);
-            Hostings[hosting.Hash] = hosting;
-            logger.info('Slave %s:%d: Client %s:%d hosted.', hosting.RelayAddress, hosting.RelayPort, hosting.ClientAddress, hosting.ClientPort);
+            var hosting = Hostings[data.rinfo] = data;
+            logger.info('Slave %s:%d: Client %s:%d hosted.', hosting.relayAddress, hosting.relayPort, hosting.clientAddress, hosting.clientPort);
 
         });
 
-        socket.on('release', function(data) {
+        socket.on('join', function(data) {
 
-            var hash = Hosting.GetHash(data.clientAddress, data.clientPort, data.relayAddress, data.relayPort);
-            var hosting = Hostings[hash];
-            logger.info('Slave %s:%d: Client %s:%d released.', hosting.RelayAddress, hosting.RelayPort, hosting.ClientAddress, hosting.ClientPort);
+            logger.info('Slave %s:%d: Host %s:%d has %s:%d joined.', data.relayAddress, data.relayPort, data.hostAddress, data.hostPort, data.guestAddress, data.guestPort);
+
+        });
+
+        socket.on('close', function(data) {
+
+            var hosting = Hostings[data.rinfo];
+            logger.info('Slave %s:%d: Client %s:%d closed.', hosting.relayAddress, hosting.relayPort, hosting.clientAddress, hosting.clientPort);
 
             hosting = null;
-            Hostings[hash] = null;
-            delete Hostings[hash];
+            Hostings[data.rinfo] = null;
+            delete Hostings[data.rinfo];
 
         });
 

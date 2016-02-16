@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "prestart": "npm run build",
-    "start": "node --harmony-destructuring app.js"
+    "start": "node --harmony-destructuring --harmony-rest-parameters app.js"
   },
   "dependencies": {
     "ejs": "^2.3.4",

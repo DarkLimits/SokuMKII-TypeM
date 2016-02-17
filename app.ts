@@ -109,9 +109,6 @@ function SendCommand(socket: any, address: string, port: number, ...params) {
 
     app.get('/', function(req, res) {
 
-        return res.render('index', {
-            hosts: [],
-        });
 
     });
 

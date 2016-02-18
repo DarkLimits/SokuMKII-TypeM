@@ -1,0 +1,31 @@
+<html>
+	<head>
+		<title>SokuMKII Analysis</title>
+	</head>
+	<body>
+	<div id="body" style="width: 100%; height: 100%;">
+
+	</div>
+	<script type="text/javascript" src="//cdn.bootcss.com/echarts/3.0.0/echarts.min.js"></script>
+	<script type="text/javascript" src="/echarts/js/china.js"></script>
+	<script type="text/javascript" src="/analysisData.js"></script>
+	<script type="text/javascript">
+
+		var chart = echarts.init(document.getElementById('body'));
+
+		window.analysisData.tooltip.formatter = function(params, ticket, callback) {
+			return params.value ? 'Host: ' + params.value[3] + ', Join: ' + params.value[4] : 'Empty';
+		};
+		for(var i in window.analysisData.series) {
+
+			window.analysisData.series[i].symbolSize = function(value) {
+				return Math.sqrt((value[3] + value[4]) * 3);
+			};
+
+		}
+
+		chart.setOption(window.analysisData);
+
+	</script>
+	</body>
+</html>

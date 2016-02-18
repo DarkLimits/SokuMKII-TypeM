@@ -105,12 +105,7 @@ function SendCommand(socket: any, address: string, port: number, ...params) {
 (function(app, logger) {
 
     app.set('view engine', 'ejs');
-    //app.use(express.static('public'));
-
-    app.get('/', function(req, res) {
-
-
-    });
+    app.use(express.static('static'));
 
 })(app, log4js.getLogger('http'));
 

@@ -210,12 +210,22 @@ class MasterServer {
 
                 socket.on('close', (data) => {
 
-                    var hosting = this.Hostings[data.rinfo];
-                    logger.info('Slave %s:%d: Client %s:%d closed.', hosting.relayAddress, hosting.relayPort, hosting.clientAddress, hosting.clientPort);
+                    if(!this.Hostings[data.rinfo]) {
 
-                    hosting = null;
-                    this.Hostings[data.rinfo] = null;
-                    delete this.Hostings[data.rinfo];
+                        logger.warn('Slave %s:%d: Client %s:%d closed without binding.', data.relayAddress, data.relayPort, data.clientAddress, data.clientPort);
+
+                    }
+                    else {
+
+                        var hosting = this.Hostings[data.rinfo];
+
+                        logger.info('Slave %s:%d: Client %s:%d closed.', hosting.relayAddress, hosting.relayPort, hosting.clientAddress, hosting.clientPort);
+
+                        hosting = null;
+                        this.Hostings[data.rinfo] = null;
+                        delete this.Hostings[data.rinfo];
+
+                    }
 
                 });
 
